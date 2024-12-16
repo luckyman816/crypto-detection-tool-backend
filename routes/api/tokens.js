@@ -23,25 +23,41 @@ axiosRetry(axios, {
   },
 });
 
-router.post("/search", async (req, res) => {
+router.post("/all", async (req, res) => {
   const { startDate, endDate, startValue, endValue } = req.body;
   console.log("------->", startDate, endDate, startValue, endValue);
   if (!BASE_URL) {
     return res.status(500).send("Base URL is not defined.");
   }
   try {
-    const response = await axios.get(
-      `${BASE_URL}/v2/pool/ether?sort=creationTime&order=desc&from=${startDate}&to=${endDate}&page=0&pageSize=50`,
-      {
-        headers: {
-          "X-API-KEY": API_KEY,
-          accept: "application/json",
-        },
-      }
-    );
-    const tokens = [];
-    const results = response.data.data.results.slice(0, 20);
+    await axios
+      .get(
+        `${BASE_URL}/v2/pool/ether?sort=creationTime&order=desc&from=${startDate}&to=${endDate}&page=0&pageSize=50`,
+        {
+          headers: {
+            "X-API-KEY": API_KEY,
+            accept: "application/json",
+          },
+        }
+      )
+      .then((response) => {
+        const results = response.data.data.results;
+        res.json(results);
+      });
+  } catch (error) {
+    console.error(error);
 
+    if (error.response && error.response.status === 429) {
+      return res.status(429).send("Too many requests. Please try again later.");
+    }
+
+    res.status(500).send("Error fetching tokens");
+  }
+});
+router.post("/find", async (req, res) => {
+  const { results, startValue, endValue } = req.body;
+  const tokens = [];
+  try {
     for (const pool of results) {
       console.log("Base URL---->:", BASE_URL, pool.address);
 
@@ -73,12 +89,11 @@ router.post("/search", async (req, res) => {
           creationTime: pool.creationTime,
         });
       }
+      new Promise((resolve) => setTimeout(resolve, 500));
     }
     const validTokens = tokens.filter((token) => token);
-
-    await Token.insertMany(validTokens);
-
     res.json(validTokens);
+    await Token.insertMany(validTokens);
   } catch (error) {
     console.error(error);
 
