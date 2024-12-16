@@ -41,7 +41,7 @@ router.post("/all", async (req, res) => {
         }
       )
       .then((response) => {
-        const results = response.data.data.results;
+        const results = response.data.data.results.slice(0,10);
         res.json(results);
       });
   } catch (error) {
